@@ -4,7 +4,7 @@
 
 ## Install
 
-Get binary from [releases](https://github.com/umegbewe/releases) or clone:
+Get binary from [releases](https://github.com/umegbewe/dhcpd/releases) or clone:
 
 ```bash
 git clone https://github.com/umegbewe/dhcpd.git
@@ -17,7 +17,7 @@ make build
 ```
 
 ## Running dhcpd
-Create a conf.yaml with desired settings, see [example conf.yaml](https://raw.githubusercontent.com/umegbewe/dhcpd/main/conf.yaml)
+Create a conf.yaml with desired settings, see [example conf.yaml](https://github.com/umegbewe/dhcpd/blob/9c62c723f07d68aabbfd38e76c44ea0534d4c70d/conf.yaml)
 
 Start dhcp server with configuration
 
@@ -51,25 +51,26 @@ DHCPACK of 192.168.100.92 from 192.168.100.1 (xid=0x14e6f62e)
 bound to 192.168.100.92 -- renewal in 261 seconds.
 ```
 
-`dhcpd` uses boltdb to maintain lease data across restarts or crashes, there is a potential for support swapping lease persistent backends in the future (leases.txt, redis, mysql, postgres etc)
+`dhcpd` uses [boltdb](https://github.com/etcd-io/bbolt) to maintain leases across restarts or crashes, there is a potential for support swapping lease persistent backends in the future (leases.txt, redis, mysql, postgres etc)
 
 
 
-`dhcpd` provides server and lease metrics, accessible at `:9100/metrics`. Additionally, a sample Grafana dashboard [JSON](https://github.com/umegbewe/dhcpd/blob/699c7546e35768876f2b3d40d43bfb46b5d5f612/grafana/%20dashboard.json) is available for visualizing these metrics."
+`dhcpd` also provides server and lease metrics, accessible at `:9100/metrics`. Additionally, a sample Grafana dashboard [JSON](https://github.com/umegbewe/dhcpd/blob/699c7546e35768876f2b3d40d43bfb46b5d5f612/grafana/%20dashboard.json) is available for visualizing these metrics."
 
 
 
 <img src="https://github.com/umegbewe/dhcpd/blob/main/grafana/screenshot.png">
 
 ## Future work
-At this stage dhcpd will work well for development environments and small networks.
+At this stage dhcpd works well for development environments and small networks.
 
 * Subnet/scope configuration
 * DHCP relay support
 * Vendor specific options
 * Optional embedded web UI/API for managing leases
 * Support other databases for lease persistence
-* Choose allocation straetgies i.e Random, Sequential or Segment (current: sequential)
+* Choose allocation straetgies i.e random, sequential or segment (current: sequential)
+
 
 
 
