@@ -32,6 +32,7 @@ INFO[2025-01-03T10:07:47+01:00] [INIT] DHCP server listening on 0.0.0.0:67 (inte
 
 Test with a client e.g dhcping or dhclient:
 
+
 `dhcpd` is configured to bind to 0.0.0.0 (all interfaces) on port 67 but some client require you to pass an IP address you should pass the interface IP
 
 ```bash
@@ -51,6 +52,7 @@ bound to 192.168.100.92 -- renewal in 261 seconds.
 ```
 
 `dhcpd` uses boltdb to maintain lease data across restarts or crashes, there is a potential for support swapping lease persistent backends in the future (leases.txt, redis, mysql, postgres etc)
+
 
 
 `dhcpd` provides server and lease metrics, accessible at `:9100/metrics`. Additionally, a sample Grafana dashboard [JSON](https://github.com/umegbewe/dhcpd/blob/699c7546e35768876f2b3d40d43bfb46b5d5f612/grafana/%20dashboard.json) is available for visualizing these metrics."
