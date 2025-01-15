@@ -20,7 +20,7 @@ func TestLeasePoolBasic(t *testing.T) {
 	defer pool.Close()
 
 	mac := net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
-	ip, err := pool.Allocate(&net.Interface{Name: "eth0"}, mac)
+	ip, err := pool.Allocate(&net.Interface{Name: "lo"}, mac)
 	if err != nil {
 		t.Fatalf("Failed to allocate IP for MAC=%s: %v", mac, err)
 	}
@@ -61,14 +61,14 @@ func TestLeasePoolExhaustion(t *testing.T) {
 		{0xDE, 0xAD, 0xBE, 0xEF, 0x03, 0x30},
 	}
 	for _, mac := range macs {
-		_, err := pool.Allocate(&net.Interface{Name: "eth0"}, mac)
+		_, err := pool.Allocate(&net.Interface{Name: "lo"}, mac)
 		if err != nil {
 			t.Fatalf("Unexpected error allocating IP: %v", err)
 		}
 	}
 
 	// next allocation should fail
-	_, err = pool.Allocate(&net.Interface{Name: "eth0"}, net.HardwareAddr{0xDE, 0xAD, 0xBE, 0xEF, 0x04, 0x40})
+	_, err = pool.Allocate(&net.Interface{Name: "lo"}, net.HardwareAddr{0xDE, 0xAD, 0xBE, 0xEF, 0x04, 0x40})
 	if err == nil {
 		t.Fatal("Expected an error due to IP exhaustion, but got nil")
 	}
@@ -85,7 +85,7 @@ func TestLeasePoolExpiry(t *testing.T) {
 	defer pool.Close()
 
 	mac := net.HardwareAddr{0xCA, 0xFE, 0xBA, 0xBE, 0xBC, 0x01}
-	ip, err := pool.Allocate(&net.Interface{Name: "eth0"}, mac)
+	ip, err := pool.Allocate(&net.Interface{Name: "lo"}, mac)
 	if err != nil {
 		t.Fatalf("Failed to allocate IP=%v", err)
 	}
@@ -98,7 +98,7 @@ func TestLeasePoolExpiry(t *testing.T) {
 	}
 
 	// allocation should return the same IP
-	ip2, err := pool.Allocate(&net.Interface{Name: "eth0"}, mac)
+	ip2, err := pool.Allocate(&net.Interface{Name: "lo"}, mac)
 	if err != nil {
 		t.Fatalf("Failed to re-allocate IP after expiry: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestLeaseWrapAround(t *testing.T) {
 	}
 	defer pool.Close()
 
-	iface := &net.Interface{Name: "eth0"}
+	iface := &net.Interface{Name: "lo"}
 
 	mac1, _ := net.ParseMAC("00:11:22:33:44:01")
 	mac2, _ := net.ParseMAC("00:11:22:33:44:02")
