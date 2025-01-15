@@ -56,7 +56,7 @@ Optional integration monitoring dhcp operations and performance metrics, see ``:
 
 
 
-<img src="https://raw.githubusercontent.com/umegbewe/dhcpd/main/grafana/screenshot.png">
+<img src="https://github.com/umegbewe/dhcpd/blob/main/grafana/screenshot.png">
 
 ## Future work
 At this stage dhcpd will work well for development environments and small networks.
