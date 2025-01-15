@@ -1,4 +1,4 @@
-## dhcpd: Fast production-grade DHCP Server in Go
+## dhcpd
 
 `dhcpd` is a dhcp server written in Go. It is designed to be fast, reliable and easy to configure.
 
@@ -59,7 +59,12 @@ Optional integration monitoring dhcp operations and performance metrics, see ``:
 <img src="https://raw.githubusercontent.com/umegbewe/dhcpd/main/grafana/screenshot.png">
 
 ## Future work
-* Optional embedded web UI for managing leases
+At this stage dhcpd will work well for development environments and small networks.
+
+* Subnet/scope configuration
+* DHCP relay support
+* Vendor specific options
+* Optional embedded web UI/API for managing leases
 * Support other databases for lease persistence
 * Choose allocation straetgies i.e Random, Sequential or Segment (current: sequential)
 
