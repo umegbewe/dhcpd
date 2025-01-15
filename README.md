@@ -32,15 +32,15 @@ INFO[2025-01-03T10:07:47+01:00] [INIT] DHCP server listening on 0.0.0.0:67 (inte
 
 Test with a client e.g dhcping or dhclient:
 
-The dhcpd is configured to bind to 0.0.0.0 (all interfaces) on port 67 but some client require you to pass an IP address you should pass the interface IP
+`dhcpd` is configured to bind to 0.0.0.0 (all interfaces) on port 67 but some client require you to pass an IP address you should pass the interface IP
 
-```
+```bash
 sudo dhcping -v -s 192.168.100.1
 
 Got answer from: 192.168.100.1
 ```
 
-```
+```bash
 dhclient -i -v eth0
 
 DHCPDISCOVER on eth0 to 255.255.255.255 port 67 interval 3 (xid=0x14e6f62e)
@@ -50,9 +50,10 @@ DHCPACK of 192.168.100.92 from 192.168.100.1 (xid=0x14e6f62e)
 bound to 192.168.100.92 -- renewal in 261 seconds.
 ```
 
-dhcpd uses boltdb to maintain lease data across restarts or crashes, there is a potential for support swapping lease persistent backends in the future (leases.txt, redis, mysql, postgres etc)
+`dhcpd` uses boltdb to maintain lease data across restarts or crashes, there is a potential for support swapping lease persistent backends in the future (leases.txt, redis, mysql, postgres etc)
 
-Optional integration monitoring dhcp operations and performance metrics, see ``:9100/metrics``, also a sample grafana dashboard json to visualize those metrics
+
+`dhcpd` provides server and lease metrics, accessible at `:9100/metrics`. Additionally, a sample Grafana dashboard [JSON](https://github.com/umegbewe/dhcpd/blob/699c7546e35768876f2b3d40d43bfb46b5d5f612/grafana/%20dashboard.json) is available for visualizing these metrics."
 
 
 
