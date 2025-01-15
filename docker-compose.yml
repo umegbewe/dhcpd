@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+  dhcpd:
+    build: .
+    ports:
+      - 67:67 # server port
+      - 9100:9100 #metrics port
+    volumes:
+      - ./conf.yaml:/etc/dhcpd/conf.yaml

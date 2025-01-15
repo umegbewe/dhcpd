@@ -1,0 +1,50 @@
+package config
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/mcuadros/go-defaults"
+	"gopkg.in/yaml.v2"
+)
+
+type Config struct {
+	Server struct {
+		IPStart                string   `yaml:"ip_start"`
+		IPEnd                  string   `yaml:"ip_end"`
+		SubnetMask             string   `yaml:"subnet_mask"`
+		LeaseTime              int      `yaml:"lease_time"`
+		Gateway                string   `yaml:"gateway"`
+		ServerIP               string   `yaml:"server_ip"`
+		DNSServers             []string `yaml:"dns_servers"`
+		TFTPServerName         string   `yaml:"tftp_server_name"`
+		BootFileName           string   `yaml:"boot_file_name"`
+		Interface              string   `yaml:"interface"`
+		Port                   int      `yaml:"port" default:"67"`
+		LeaseDBPath            string   `yaml:"lease_db_path"`
+		CleanupExpiredInterval int      `yaml:"cleanup_expired_interval" default:"120"`
+	} `yaml:"server"`
+	Logging struct {
+		Level string `yaml:"level"`
+	} `yaml:"logging"`
+	Metrics struct {
+		Enabled       bool   `yaml:"enabled" default:"true"`
+		ListenAddress string `yaml:"listen_address" default:":9100"`
+	} `yaml:"metrics"`
+}
+
+func LoadConfig(filePath string) (*Config, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read configuration file: %v", err)
+	}
+
+	cfg := &Config{}
+	defaults.SetDefaults(cfg)
+	err = yaml.Unmarshal(data, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse configuration YAML: %v", err)
+	}
+
+	return cfg, nil
+}

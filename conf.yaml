@@ -1,0 +1,21 @@
+server:
+  ip_start: "192.168.1.40"            # Starting IP address in the pool
+  ip_end: "192.168.1.255"             # Ending IP address in the pool
+  subnet_mask: "255.255.255.0"          # Subnet mask to distribute to clients
+  lease_time: 600                       # Lease duration in seconds (e.g., 600 = 10 minutes)
+  gateway: "192.168.1.40"              # Default gateway IP address
+  server_ip: "192.168.1.40"            # IP address of the DHCP server
+  port: 67                              # UDP port for DHCP (default is 67)
+  dns_servers:
+    - "8.8.8.8"                         # Primary DNS server
+    - "8.8.4.4"                         # Secondary DNS server
+  interface: "en0"                     # Network interface to bind the DHCP server to
+  lease_db_path: "leases.db"            # Path to the db file for lease persistence
+  cleanup_expired_interval: 120         # Interval in seconds for cleaning up expired leases
+
+logging:
+  level: "info"                        # Log level (debug, info, warn, error)
+
+metrics:
+  enabled: true                        # Enable Prometheus metrics
+  listen_address: "0.0.0.0:9100"              # Address and port for the metrics endpoint
