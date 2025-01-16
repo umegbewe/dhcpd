@@ -12,6 +12,7 @@ server:
   interface: "en0"                     # Network interface to bind the DHCP server to
   lease_db_path: "leases.db"            # Path to the db file for lease persistence
   cleanup_expired_interval: 120         # Interval in seconds for cleaning up expired leases
+  arp_check: true                       # Enable or disable server ARP check for ip conflicts
 
 logging:
   level: "info"                        # Log level (debug, info, warn, error)

@@ -107,7 +107,7 @@ func LeasePool(start, end string, leaseTime int, dbPath string) (*Pool, error) {
 	return p, nil
 }
 
-func (p *Pool) Allocate(iface *net.Interface, mac net.HardwareAddr) (net.IP, error) {
+func (p *Pool) Allocate(iface *net.Interface, mac net.HardwareAddr, arp bool) (net.IP, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -175,7 +175,7 @@ func (p *Pool) Allocate(iface *net.Interface, mac net.HardwareAddr) (net.IP, err
 	ip := offsetToIP(p.start, freeOffset)
 
 	// loopback interfaces should never do arp resolution
-	if iface.Name != "lo0" && iface.Name != "lo" {
+	if arp && iface.Name != "lo0" && iface.Name != "lo" {
 		inUse, err := ARPCheck(iface, ip, 2*time.Second)
 		if err != nil {
 			// ARP check failed, bail out.
@@ -392,7 +392,7 @@ func (p *Pool) CleanupExpiredLeases() error {
 			l, de := deserialize(v)
 
 			if de != nil {
-				continue	// skip corrupt
+				continue // skip corrupt
 			}
 			if now.After(l.ExpireAt) {
 				if err := c.Delete(); err != nil {
@@ -402,7 +402,7 @@ func (p *Pool) CleanupExpiredLeases() error {
 					return err
 				}
 
-				 // track offset for clearing in bitmap
+				// track offset for clearing in bitmap
 				offset := int(ipToUint32(l.IP) - startUint)
 				if offset >= 0 && offset < p.totalLeases {
 					freedOffsets = append(freedOffsets, offset)

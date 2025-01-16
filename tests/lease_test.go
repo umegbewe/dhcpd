@@ -20,7 +20,7 @@ func TestLeasePoolBasic(t *testing.T) {
 	defer pool.Close()
 
 	mac := net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
-	ip, err := pool.Allocate(&net.Interface{Name: "lo"}, mac)
+	ip, err := pool.Allocate(&net.Interface{Name: "lo"}, mac, false)
 	if err != nil {
 		t.Fatalf("Failed to allocate IP for MAC=%s: %v", mac, err)
 	}
@@ -61,14 +61,14 @@ func TestLeasePoolExhaustion(t *testing.T) {
 		{0xDE, 0xAD, 0xBE, 0xEF, 0x03, 0x30},
 	}
 	for _, mac := range macs {
-		_, err := pool.Allocate(&net.Interface{Name: "lo"}, mac)
+		_, err := pool.Allocate(&net.Interface{Name: "lo"}, mac, false)
 		if err != nil {
 			t.Fatalf("Unexpected error allocating IP: %v", err)
 		}
 	}
 
 	// next allocation should fail
-	_, err = pool.Allocate(&net.Interface{Name: "lo"}, net.HardwareAddr{0xDE, 0xAD, 0xBE, 0xEF, 0x04, 0x40})
+	_, err = pool.Allocate(&net.Interface{Name: "lo"}, net.HardwareAddr{0xDE, 0xAD, 0xBE, 0xEF, 0x04, 0x40}, false)
 	if err == nil {
 		t.Fatal("Expected an error due to IP exhaustion, but got nil")
 	}
@@ -85,7 +85,7 @@ func TestLeasePoolExpiry(t *testing.T) {
 	defer pool.Close()
 
 	mac := net.HardwareAddr{0xCA, 0xFE, 0xBA, 0xBE, 0xBC, 0x01}
-	ip, err := pool.Allocate(&net.Interface{Name: "lo"}, mac)
+	ip, err := pool.Allocate(&net.Interface{Name: "lo"}, mac, false)
 	if err != nil {
 		t.Fatalf("Failed to allocate IP=%v", err)
 	}
@@ -98,7 +98,7 @@ func TestLeasePoolExpiry(t *testing.T) {
 	}
 
 	// allocation should return the same IP
-	ip2, err := pool.Allocate(&net.Interface{Name: "lo"}, mac)
+	ip2, err := pool.Allocate(&net.Interface{Name: "lo"}, mac, false)
 	if err != nil {
 		t.Fatalf("Failed to re-allocate IP after expiry: %v", err)
 	}
@@ -125,7 +125,7 @@ func TestLeaseWrapAround(t *testing.T) {
 	mac4, _ := net.ParseMAC("00:11:22:33:44:04")
 
 	//(offset 0)
-	ip1, err := pool.Allocate(iface, mac1)
+	ip1, err := pool.Allocate(iface, mac1, false)
 	if err != nil {
 		t.Fatalf("Allocate(mac1) failed: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestLeaseWrapAround(t *testing.T) {
 	}
 
 	//(offset 1)
-	ip2, err := pool.Allocate(iface, mac2)
+	ip2, err := pool.Allocate(iface, mac2, false)
 	if err != nil {
 		t.Fatalf("Allocate(mac2) failed: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestLeaseWrapAround(t *testing.T) {
 	}
 
 	//(offset 2)
-	ip3, err := pool.Allocate(iface, mac3)
+	ip3, err := pool.Allocate(iface, mac3, false)
 	if err != nil {
 		t.Fatalf("Allocate(mac3) failed: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestLeaseWrapAround(t *testing.T) {
 		t.Fatalf("Release(ip2) failed: %v", err)
 	}
 
-	mac4IP, err := pool.Allocate(iface, mac4)
+	mac4IP, err := pool.Allocate(iface, mac4, false)
 	if err != nil {
 		t.Fatalf("Allocate(mac4) failed: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestLeaseWrapAround(t *testing.T) {
 	}
 
 	mac5, _ := net.ParseMAC("00:11:22:33:44:05")
-	ip5, err := pool.Allocate(iface, mac5)
+	ip5, err := pool.Allocate(iface, mac5, false)
 	if err != nil {
 		t.Fatalf("Allocate(mac5) failed: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestLeaseWrapAround(t *testing.T) {
 	}
 
 	mac6, _ := net.ParseMAC("00:11:22:33:44:06")
-	ip6, err := pool.Allocate(iface, mac6)
+	ip6, err := pool.Allocate(iface, mac6, false)
 	if err != nil {
 		t.Fatalf("Allocate(mac6) failed: %v", err)
 	}

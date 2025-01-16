@@ -23,6 +23,7 @@ type Config struct {
 		Port                   int      `yaml:"port" default:"67"`
 		LeaseDBPath            string   `yaml:"lease_db_path"`
 		CleanupExpiredInterval int      `yaml:"cleanup_expired_interval" default:"120"`
+		ARPCheck               bool     `yaml:"arp_check" default:"true"`
 	} `yaml:"server"`
 	Logging struct {
 		Level string `yaml:"level"`

@@ -27,6 +27,7 @@ func createTestConfig(dbPath string) *config.Config {
 			Port                   int      `yaml:"port" default:"67"`
 			LeaseDBPath            string   `yaml:"lease_db_path"`
 			CleanupExpiredInterval int      `yaml:"cleanup_expired_interval" default:"120"`
+			ARPCheck              bool     `yaml:"arp_check" default:"true"`
 		}{
 			IPStart:     "192.168.100.10",
 			IPEnd:       "192.168.100.12",
@@ -38,6 +39,7 @@ func createTestConfig(dbPath string) *config.Config {
 			Interface:   "lo",
 			Port:        6767,
 			LeaseDBPath: dbPath,
+			ARPCheck:   false,
 		},
 	}
 }
@@ -161,6 +163,7 @@ func TestRequestFlow(t *testing.T) {
 			Port                   int      `yaml:"port" default:"67"`
 			LeaseDBPath            string   `yaml:"lease_db_path"`
 			CleanupExpiredInterval int      `yaml:"cleanup_expired_interval" default:"120"`
+			ARPCheck              bool     `yaml:"arp_check" default:"true"`
 		}{
 			IPStart:     "192.168.100.10",
 			IPEnd:       "192.168.100.15",
@@ -172,6 +175,7 @@ func TestRequestFlow(t *testing.T) {
 			Interface:   "lo",
 			Port:        6767,
 			LeaseDBPath: "test_request_flow.db",
+			ARPCheck:   false,
 		},
 	}
 
@@ -244,6 +248,7 @@ func TestHighConcurrencyFlood(t *testing.T) {
 			Port                   int      `yaml:"port" default:"67"`
 			LeaseDBPath            string   `yaml:"lease_db_path"`
 			CleanupExpiredInterval int      `yaml:"cleanup_expired_interval" default:"120"`
+			ARPCheck              bool     `yaml:"arp_check" default:"true"`
 		}{
 			IPStart:     "192.168.0.10",
 			IPEnd:       "192.183.255.0",
@@ -255,6 +260,7 @@ func TestHighConcurrencyFlood(t *testing.T) {
 			Interface:   "lo",
 			Port:        6767,
 			LeaseDBPath: "test_high_concurrency_flood.db",
+			ARPCheck:   false,
 		}, Logging: struct {
 			Level string `yaml:"level"`
 		}{Level: "error"},

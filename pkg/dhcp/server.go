@@ -145,7 +145,7 @@ func (s *Server) HandleMessage(data []byte, remoteAddr *net.UDPAddr) {
 func (s *Server) HandleDiscover(message *Message, remoteAddr *net.UDPAddr) {
 	log.Infof("[DHCPDISCOVER] from MAC=%s;", message.CHAddr)
 
-	ip, err := s.LeasePool.Allocate(s.Interface, message.CHAddr)
+	ip, err := s.LeasePool.Allocate(s.Interface, message.CHAddr, s.Config.Server.ARPCheck)
 	if err != nil {
 		log.Errorf("Error allocating lease: %v", err)
 		return
@@ -188,7 +188,7 @@ func (s *Server) HandleRequest(message *Message, remoteAddr *net.UDPAddr) {
 	leases := s.LeasePool.GetLeaseByMAC(message.CHAddr)
 	if leases == nil {
 		// client is new or changed MACs. We can attempt new allocation
-		ip, err := s.LeasePool.Allocate(s.Interface, message.CHAddr)
+		ip, err := s.LeasePool.Allocate(s.Interface, message.CHAddr, s.Config.Server.ARPCheck)
 		if err != nil {
 			s.SendNAK(message, "No available IP")
 			return
