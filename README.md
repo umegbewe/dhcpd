@@ -51,9 +51,14 @@ DHCPACK of 192.168.100.92 from 192.168.100.1 (xid=0x14e6f62e)
 bound to 192.168.100.92 -- renewal in 261 seconds.
 ```
 
+## Testing
+See [DEVELOPMENT.md](https://github.com/umegbewe/dhcpd/blob/fce86844b650f8a5d32d83b23cd4144a6176426f/DEVELOPMENT.md) guide on how to test ``dhcpd`` in a isolated linux namesspaces
+<br>
+
+
+## About
 `dhcpd` uses [boltdb](https://github.com/etcd-io/bbolt) to maintain leases across restarts or crashes, there is a potential for support swapping lease persistent backends in the future (leases.txt, redis, mysql, postgres etc)
-
-
+<br>
 
 `dhcpd` also provides server and lease metrics, accessible at `:9100/metrics`. Additionally, a sample Grafana dashboard [JSON](https://github.com/umegbewe/dhcpd/blob/699c7546e35768876f2b3d40d43bfb46b5d5f612/grafana/%20dashboard.json) is available for visualizing these metrics."
 
