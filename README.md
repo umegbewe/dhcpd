@@ -58,7 +58,6 @@ bound to 192.168.100.92 -- renewal in 261 seconds.
 `dhcpd` also provides server and lease metrics, accessible at `:9100/metrics`. Additionally, a sample Grafana dashboard [JSON](https://github.com/umegbewe/dhcpd/blob/699c7546e35768876f2b3d40d43bfb46b5d5f612/grafana/%20dashboard.json) is available for visualizing these metrics."
 
 
-
 <img src="https://github.com/umegbewe/dhcpd/blob/main/grafana/screenshot.png">
 
 ## Future work
