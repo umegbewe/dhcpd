@@ -12,6 +12,8 @@ import (
 func main() {
 	configFile := flag.String("conf", "conf.yaml", "Path to the configuration file")
 
+	flag.Parse()
+
 	if envConfig := os.Getenv("DHCP_CONFIG_PATH"); envConfig != "" {
 		*configFile = envConfig
 	}
