@@ -52,7 +52,7 @@ bound to 192.168.100.92 -- renewal in 261 seconds.
 ```
 
 ## Testing
-See [DEVELOPMENT.md](https://github.com/umegbewe/dhcpd/blob/fce86844b650f8a5d32d83b23cd4144a6176426f/DEVELOPMENT.md) guide on how to test ``dhcpd`` in a isolated linux namesspaces
+See [DEVELOPMENT.md](https://github.com/umegbewe/dhcpd/blob/fce86844b650f8a5d32d83b23cd4144a6176426f/DEVELOPMENT.md) guide on how to test ``dhcpd`` in isolated linux namespaces
 <br>
 
 
@@ -69,7 +69,6 @@ See [DEVELOPMENT.md](https://github.com/umegbewe/dhcpd/blob/fce86844b650f8a5d32d
 At this stage dhcpd works well for development environments and small networks.
 
 * Subnet/scope configuration
-* DHCP relay support
 * Vendor specific options
 * Optional embedded web UI/API for managing leases
 * Support other databases for lease persistence
