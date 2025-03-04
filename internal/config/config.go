@@ -21,7 +21,6 @@ type Config struct {
 		BootFileName           string   `yaml:"boot_file_name"`
 		Interface              string   `yaml:"interface"`
 		Port                   int      `yaml:"port" default:"67"`
-		LeaseDBPath            string   `yaml:"lease_db_path"`
 		CleanupExpiredInterval int      `yaml:"cleanup_expired_interval" default:"120"`
 		ARPCheck               bool     `yaml:"arp_check" default:"true"`
 	} `yaml:"server"`
@@ -32,6 +31,17 @@ type Config struct {
 		Enabled       bool   `yaml:"enabled" default:"true"`
 		ListenAddress string `yaml:"listen_address" default:":9100"`
 	} `yaml:"metrics"`
+	Database struct {
+		Type string `yaml:"type" default:"bolt"`
+		Bolt struct {
+			Path string `yaml:"path"`
+		} `yaml:"bolt"`
+		Redis struct {
+			Addr     string `yaml:"addr" default:"localhost:6379"`
+			Password string `yaml:"password"`
+			DB       int    `yaml:"db" default:"0"`
+		} `yaml:"redis"`
+	} `yaml:"database"`
 }
 
 func LoadConfig(filePath string) (*Config, error) {
