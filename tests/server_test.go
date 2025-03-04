@@ -8,46 +8,45 @@ import (
 	"time"
 
 	"github.com/umegbewe/dhcpd/internal/config"
+	"github.com/umegbewe/dhcpd/internal/storage"
 	"github.com/umegbewe/dhcpd/pkg/dhcp"
 )
 
 func createTestConfig(dbPath string) *config.Config {
-	return &config.Config{
-		Server: struct {
-			IPStart                string   `yaml:"ip_start"`
-			IPEnd                  string   `yaml:"ip_end"`
-			SubnetMask             string   `yaml:"subnet_mask"`
-			LeaseTime              int      `yaml:"lease_time"`
-			Gateway                string   `yaml:"gateway"`
-			ServerIP               string   `yaml:"server_ip"`
-			DNSServers             []string `yaml:"dns_servers"`
-			TFTPServerName         string   `yaml:"tftp_server_name"`
-			BootFileName           string   `yaml:"boot_file_name"`
-			Interface              string   `yaml:"interface"`
-			Port                   int      `yaml:"port" default:"67"`
-			LeaseDBPath            string   `yaml:"lease_db_path"`
-			CleanupExpiredInterval int      `yaml:"cleanup_expired_interval" default:"120"`
-			ARPCheck              bool     `yaml:"arp_check" default:"true"`
-		}{
-			IPStart:     "192.168.100.10",
-			IPEnd:       "192.168.100.12",
-			SubnetMask:  "255.255.255.0",
-			LeaseTime:   60,
-			Gateway:     "192.168.100.1",
-			ServerIP:    "192.168.100.1",
-			DNSServers:  []string{"8.8.8.8", "8.8.4.4"},
-			Interface:   "lo",
-			Port:        6767,
-			LeaseDBPath: dbPath,
-			ARPCheck:   false,
-		},
-	}
+    return &config.Config{
+        Server: config.Server{ 
+            IPStart:                "192.168.100.10",
+            IPEnd:                  "192.168.100.12",
+            SubnetMask:             "255.255.255.0",
+            LeaseTime:              60,
+            Gateway:                "192.168.100.1",
+            ServerIP:               "192.168.100.1",
+            DNSServers:             []string{"8.8.8.8", "8.8.4.4"},
+            Interface:              "lo",
+            Port:                   6767,
+            CleanupExpiredInterval: 120,
+            ARPCheck:               false,
+        },
+        Database: config.Database{
+            Type: "bolt",
+            Bolt: config.BoltConfig{
+                Path: dbPath,
+            },
+        },
+    }
 }
 
 func TestDHCPMessageExchange(t *testing.T) {
 
 	cfg := createTestConfig("test_message_exchange.db")
-	pool, err := dhcp.LeasePool(cfg.Server.IPStart, cfg.Server.IPEnd, cfg.Server.LeaseTime, cfg.Server.LeaseDBPath)
+
+	store, err := storage.NewBoltStore(cfg.Database.Bolt.Path)
+	if err != nil {
+		t.Fatalf("Failed to create bolt store: %v", err)
+	}
+	defer store.Close()
+
+	pool, err := dhcp.LeasePool(cfg.Server.IPStart, cfg.Server.IPEnd, cfg.Server.LeaseTime, store)
 	if err != nil {
 		t.Fatalf("Failed to create lease pool: %v", err)
 	}
@@ -64,7 +63,7 @@ func TestDHCPMessageExchange(t *testing.T) {
 		Interface: iface,
 	}
 
-	defer os.Remove(cfg.Server.LeaseDBPath)
+	defer os.Remove(cfg.Database.Bolt.Path)
 
 	srv.Connection, err = net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {
@@ -88,7 +87,13 @@ func TestDHCPMessageExchange(t *testing.T) {
 func TestConcurrentDiscovers(t *testing.T) {
 	cfg := createTestConfig("test_message_exchange.db")
 
-	pool, err := dhcp.LeasePool(cfg.Server.IPStart, cfg.Server.IPEnd, cfg.Server.LeaseTime, cfg.Server.LeaseDBPath)
+	store, err := storage.NewBoltStore(cfg.Database.Bolt.Path)
+	if err != nil {
+		t.Fatalf("Failed to create bolt store: %v", err)
+	}
+	defer store.Close()
+	
+	pool, err := dhcp.LeasePool(cfg.Server.IPStart, cfg.Server.IPEnd, cfg.Server.LeaseTime, store)
 	if err != nil {
 		t.Fatalf("Failed to create lease pool: %v", err)
 	}
@@ -105,7 +110,7 @@ func TestConcurrentDiscovers(t *testing.T) {
 		Interface: iface,
 	}
 
-	defer os.Remove(cfg.Server.LeaseDBPath)
+	defer os.Remove(cfg.Database.Bolt.Path)
 
 	srv.Connection, err = net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {
@@ -149,37 +154,34 @@ func TestConcurrentDiscovers(t *testing.T) {
 
 func TestRequestFlow(t *testing.T) {
 	cfg := &config.Config{
-		Server: struct {
-			IPStart                string   `yaml:"ip_start"`
-			IPEnd                  string   `yaml:"ip_end"`
-			SubnetMask             string   `yaml:"subnet_mask"`
-			LeaseTime              int      `yaml:"lease_time"`
-			Gateway                string   `yaml:"gateway"`
-			ServerIP               string   `yaml:"server_ip"`
-			DNSServers             []string `yaml:"dns_servers"`
-			TFTPServerName         string   `yaml:"tftp_server_name"`
-			BootFileName           string   `yaml:"boot_file_name"`
-			Interface              string   `yaml:"interface"`
-			Port                   int      `yaml:"port" default:"67"`
-			LeaseDBPath            string   `yaml:"lease_db_path"`
-			CleanupExpiredInterval int      `yaml:"cleanup_expired_interval" default:"120"`
-			ARPCheck              bool     `yaml:"arp_check" default:"true"`
-		}{
-			IPStart:     "192.168.100.10",
-			IPEnd:       "192.168.100.15",
-			SubnetMask:  "255.255.255.0",
-			LeaseTime:   60,
-			Gateway:     "192.168.100.1",
-			ServerIP:    "192.168.100.1",
-			DNSServers:  []string{"8.8.8.8"},
-			Interface:   "lo",
-			Port:        6767,
-			LeaseDBPath: "test_request_flow.db",
-			ARPCheck:   false,
-		},
-	}
+        Server: config.Server{ 
+            IPStart:                "192.168.100.10",
+            IPEnd:                  "192.168.100.15",
+            SubnetMask:             "255.255.255.0",
+            LeaseTime:              60,
+            Gateway:                "192.168.100.1",
+            ServerIP:               "192.168.100.1",
+            DNSServers:             []string{"8.8.8.8", "8.8.4.4"},
+            Interface:              "lo",
+            Port:                   6767,
+            CleanupExpiredInterval: 120,
+            ARPCheck:               false,
+        },
+        Database: config.Database{
+            Type: "bolt",
+            Bolt: config.BoltConfig{
+                Path: "test_request_flow.db",
+            },
+        },
+    }
 
-	pool, err := dhcp.LeasePool(cfg.Server.IPStart, cfg.Server.IPEnd, cfg.Server.LeaseTime, cfg.Server.LeaseDBPath)
+	store, err := storage.NewBoltStore(cfg.Database.Bolt.Path)
+	if err != nil {
+		t.Fatalf("Failed to create bolt store: %v", err)
+	}
+	defer store.Close()
+
+	pool, err := dhcp.LeasePool(cfg.Server.IPStart, cfg.Server.IPEnd, cfg.Server.LeaseTime, store)
 	if err != nil {
 		t.Fatalf("Failed to create lease pool: %v", err)
 	}
@@ -195,7 +197,7 @@ func TestRequestFlow(t *testing.T) {
 		LeasePool: pool,
 		Interface: iface,
 	}
-	defer os.Remove(cfg.Server.LeaseDBPath)
+	defer os.Remove(cfg.Database.Bolt.Path)
 
 	srv.Connection, err = net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {
@@ -234,39 +236,34 @@ func TestRequestFlow(t *testing.T) {
 
 func TestHighConcurrencyFlood(t *testing.T) {
 	cfg := &config.Config{
-		Server: struct {
-			IPStart                string   `yaml:"ip_start"`
-			IPEnd                  string   `yaml:"ip_end"`
-			SubnetMask             string   `yaml:"subnet_mask"`
-			LeaseTime              int      `yaml:"lease_time"`
-			Gateway                string   `yaml:"gateway"`
-			ServerIP               string   `yaml:"server_ip"`
-			DNSServers             []string `yaml:"dns_servers"`
-			TFTPServerName         string   `yaml:"tftp_server_name"`
-			BootFileName           string   `yaml:"boot_file_name"`
-			Interface              string   `yaml:"interface"`
-			Port                   int      `yaml:"port" default:"67"`
-			LeaseDBPath            string   `yaml:"lease_db_path"`
-			CleanupExpiredInterval int      `yaml:"cleanup_expired_interval" default:"120"`
-			ARPCheck              bool     `yaml:"arp_check" default:"true"`
-		}{
-			IPStart:     "192.168.0.10",
-			IPEnd:       "192.183.255.0",
-			SubnetMask:  "255.240.0.0",
-			LeaseTime:   2000,
-			Gateway:     "192.168.200.1",
-			ServerIP:    "192.168.200.1",
-			DNSServers:  []string{"8.8.8.8", "8.8.4.4"},
-			Interface:   "lo",
-			Port:        6767,
-			LeaseDBPath: "test_high_concurrency_flood.db",
-			ARPCheck:   false,
-		}, Logging: struct {
-			Level string `yaml:"level"`
-		}{Level: "error"},
-	}
+        Server: config.Server{ 
+            IPStart:                "192.168.0.10",
+            IPEnd:                  "192.183.255.0",
+            SubnetMask:             "255.240.255.0",
+            LeaseTime:              2000,
+            Gateway:                "192.168.100.1",
+            ServerIP:               "192.168.100.1",
+            DNSServers:             []string{"8.8.8.8", "8.8.4.4"},
+            Interface:              "lo",
+            Port:                   6767,
+            CleanupExpiredInterval: 120,
+            ARPCheck:               false,
+        },
+        Database: config.Database{
+            Type: "bolt",
+            Bolt: config.BoltConfig{
+                Path: "test_high_concurrency_flood.db",
+            },
+        },
+    }
 
-	pool, err := dhcp.LeasePool(cfg.Server.IPStart, cfg.Server.IPEnd, cfg.Server.LeaseTime, cfg.Server.LeaseDBPath)
+	store, err := storage.NewBoltStore(cfg.Database.Bolt.Path)
+	if err != nil {
+		t.Fatalf("Failed to create bolt store: %v", err)
+	}
+	defer store.Close()
+
+	pool, err := dhcp.LeasePool(cfg.Server.IPStart, cfg.Server.IPEnd, cfg.Server.LeaseTime, store)
 	if err != nil {
 		t.Fatalf("Failed to create lease pool: %v", err)
 	}
@@ -282,7 +279,7 @@ func TestHighConcurrencyFlood(t *testing.T) {
 		Interface: iface,
 	}
 
-	defer os.Remove(cfg.Server.LeaseDBPath)
+	defer os.Remove(cfg.Database.Bolt.Path)
 
 	srv.Connection, err = net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
 	if err != nil {

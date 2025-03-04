@@ -1,7 +1,6 @@
 package dhcp
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
@@ -11,32 +10,21 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/umegbewe/dhcpd/internal/bitmap"
 	"github.com/umegbewe/dhcpd/internal/metrics"
-	bolt "go.etcd.io/bbolt"
+	"github.com/umegbewe/dhcpd/internal/storage"
 )
-
-type Lease struct {
-	IP       net.IP
-	MAC      net.HardwareAddr
-	ExpireAt time.Time
-}
 
 type Pool struct {
 	start       net.IP
 	end         net.IP
 	leaseTime   time.Duration
-	db          *bolt.DB
+	store       storage.LeaseStore
 	mutex       sync.RWMutex
 	used        *bitmap.Bitmap
 	nextIdx     int
 	totalLeases int
 }
 
-var (
-	ipBucket  = []byte("leases_by_ip")
-	macBucket = []byte("leases_by_mac")
-)
-
-func LeasePool(start, end string, leaseTime int, dbPath string) (*Pool, error) {
+func LeasePool(start, end string, leaseTime int, store storage.LeaseStore) (*Pool, error) {
 	startIP := net.ParseIP(start).To4()
 	endIP := net.ParseIP(end).To4()
 
@@ -50,60 +38,31 @@ func LeasePool(start, end string, leaseTime int, dbPath string) (*Pool, error) {
 		return nil, errors.New("end IP must be >= start IP")
 	}
 
-	db, err := bolt.Open(dbPath, 0600, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	err = db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(ipBucket)
-		if err != nil {
-			return err
-		}
-		_, err = tx.CreateBucketIfNotExists(macBucket)
-		return err
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	total := int(endIPInt - startIPInt + 1)
 	p := &Pool{
 		start:       startIP,
 		end:         endIP,
 		leaseTime:   time.Duration(leaseTime) * time.Second,
-		db:          db,
+		store:       store,
 		used:        bitmap.BitMap(total),
 		nextIdx:     0,
 		totalLeases: total,
 	}
 
-	now := time.Now()
-	err = db.View(func(tx *bolt.Tx) error {
-		ipBkt := tx.Bucket(ipBucket)
-		if ipBkt == nil {
-			return nil
-		}
-		c := ipBkt.Cursor()
-		for k, v := c.First(); k != nil; k, v = c.Next() {
-			l, de := deserialize(v)
-			if de != nil {
-				continue // skip corrupt
-			}
-			// if the lease has not expired, remove from freeIPs
-			if now.Before(l.ExpireAt) {
-				offset := ipToUint32(l.IP) - startIPInt
-				if int(offset) < total {
-					p.used.Set(int(offset))
-				}
-			}
-		}
-		return nil
-	})
+	leases, err := store.ListLeases()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load leases: %v", err)
 	}
 
+	now := time.Now()
+	for _, l := range leases {
+		if now.Before(l.ExpireAt) {
+			offset := ipToUint32(l.IP) - startIPInt
+			if int(offset) < total {
+				p.used.Set(int(offset))
+			}
+		}
+	}
 	return p, nil
 }
 
@@ -111,31 +70,17 @@ func (p *Pool) Allocate(iface *net.Interface, mac net.HardwareAddr, arp bool) (n
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	// first, check if there's a record for this MAC do a direct read from DB so we can see if it is expired or not
-	var storedLease *Lease
-	_ = p.db.View(func(tx *bolt.Tx) error {
-		macBkt := tx.Bucket(macBucket)
-		if macBkt == nil {
-			return nil
-		}
-		val := macBkt.Get(mac)
-		if val == nil {
-			return nil
-		}
-		l, decErr := deserialize(val)
-		if decErr == nil {
-			storedLease = l
-		}
-		return nil
-	})
+	storedLease, err := p.store.GetLeaseByMAC(mac)
+	if err != nil {
+		return nil, err
+	}
 
-	// if storedLease == nil, there's no record at all (MAC not in DB) if it is non-nil, it might be expired or unexpired so let's see
 	now := time.Now()
 	if storedLease != nil {
 		if now.Before(storedLease.ExpireAt) {
-			//the existing lease is still valid => just renew it
+			// existing lease is valid => renew
 			storedLease.ExpireAt = now.Add(p.leaseTime)
-			if err := p.saveLease(storedLease); err != nil {
+			if err := p.store.SaveLease(storedLease); err != nil {
 				return nil, err
 			}
 
@@ -143,35 +88,21 @@ func (p *Pool) Allocate(iface *net.Interface, mac net.HardwareAddr, arp bool) (n
 			return storedLease.IP, nil
 		}
 
-		expiredIP := storedLease.IP
+		if err := p.store.DeleteLease(storedLease.IP); err != nil {
+			log.Warnf("Failed to delete expired lease for IP %s: %v", storedLease.IP, err)
+		}
 
-		// if we get here, the lease is expired => free that IP
-		_ = p.db.Update(func(tx *bolt.Tx) error {
-			ipBkt := tx.Bucket(ipBucket)
-			macBkt := tx.Bucket(macBucket)
-			if ipBkt != nil && macBkt != nil {
-				_ = ipBkt.Delete(expiredIP.To4())
-				_ = macBkt.Delete(storedLease.MAC)
-			}
-			return nil
-		})
-
-		// clear bit
-		startUint := ipToUint32(p.start)
-		offset := ipToUint32(expiredIP) - startUint
+		offset := ipToUint32(storedLease.IP) - ipToUint32(p.start)
 		if int(offset) < p.totalLeases {
 			p.used.Clear(int(offset))
 		}
-
 	}
 
 	// need a brand new IP => find the next free offset in the bitmap
-	currentSearchIdx := p.nextIdx
-	freeOffset := p.used.FindNextClearBit(currentSearchIdx)
+	freeOffset := p.used.FindNextClearBit(p.nextIdx)
 	if freeOffset == -1 {
 		return nil, errors.New("no available lease")
 	}
-
 	ip := offsetToIP(p.start, freeOffset)
 
 	// loopback interfaces should never do arp resolution
@@ -194,13 +125,13 @@ func (p *Pool) Allocate(iface *net.Interface, mac net.HardwareAddr, arp bool) (n
 	p.used.Set(freeOffset)
 	p.nextIdx = (freeOffset + 1) % p.totalLeases
 
-	newLease := &Lease{
+	newLease := &storage.Lease{
 		IP:       ip,
 		MAC:      mac,
 		ExpireAt: time.Now().Add(p.leaseTime),
 	}
 
-	if err := p.saveLease(newLease); err != nil {
+	if err := p.store.SaveLease(newLease); err != nil {
 		p.used.Clear(freeOffset)
 		return nil, err
 	}
@@ -216,37 +147,11 @@ func (p *Pool) Release(ip net.IP) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	err := p.db.Update(func(tx *bolt.Tx) error {
-		ipBkt := tx.Bucket(ipBucket)
-		macBkt := tx.Bucket(macBucket)
-
-		if ipBkt == nil || macBkt == nil {
-			return nil
-		}
-
-		val := ipBkt.Get(ip.To4())
-		if val == nil {
-			// IP not found, nothing to do
-			return nil
-		}
-		l, de := deserialize(val)
-		if de != nil {
-			return de
-		}
-
-		// delete from both IP and MAC buckets
-		if e := ipBkt.Delete(ip.To4()); e != nil {
-			return e
-		}
-		return macBkt.Delete(l.MAC)
-	})
-	if err != nil {
+	if err := p.store.DeleteLease(ip); err != nil {
 		return err
 	}
 
-	// clear bit
-	startUint := ipToUint32(p.start)
-	offset := int(ipToUint32(ip) - startUint)
+	offset := int(ipToUint32(ip)) - int(ipToUint32(p.start))
 	if offset >= 0 && offset < p.totalLeases {
 		p.used.Clear(offset)
 	}
@@ -258,106 +163,39 @@ func (p *Pool) Release(ip net.IP) error {
 	return nil
 }
 
-func (p *Pool) GetLeaseByMAC(mac net.HardwareAddr) *Lease {
+func (p *Pool) GetLeaseByMAC(mac net.HardwareAddr) *storage.Lease {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	var lease *Lease
-	_ = p.db.View(func(tx *bolt.Tx) error {
-		macBkt := tx.Bucket(macBucket)
-		val := macBkt.Get(mac)
-		if val != nil {
-			l, err := deserialize(val)
-			if err == nil && time.Now().Before(l.ExpireAt) {
-				lease = l
-			}
-		}
+	lease, err := p.store.GetLeaseByMAC(mac)
+	if err != nil || lease == nil || time.Now().After(lease.ExpireAt) {
 		return nil
-	})
+	}
+
 	return lease
 }
 
-func (p *Pool) ListLeases() []*Lease {
+func (p *Pool) ListLeases() []*storage.Lease {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	var leases []*Lease
-	_ = p.db.View(func(tx *bolt.Tx) error {
-		ipBkt := tx.Bucket(ipBucket)
-		if ipBkt == nil {
-			return nil
-		}
-		c := ipBkt.Cursor()
-		now := time.Now()
-		for k, v := c.First(); k != nil; k, v = c.Next() {
-			l, err := deserialize(v)
-			if err != nil {
-				continue
-			}
-			if now.Before(l.ExpireAt) {
-				leases = append(leases, l)
-			}
-		}
+	leases, err := p.store.ListLeases()
+	if err != nil {
+		log.Errorf("Failed to list leases: %v", err)
 		return nil
-	})
-	return leases
-}
-
-func (p *Pool) saveLease(l *Lease) error {
-	return p.db.Update(func(tx *bolt.Tx) error {
-		ipBkt := tx.Bucket(ipBucket)
-		macBkt := tx.Bucket(macBucket)
-		if ipBkt == nil || macBkt == nil {
-			return errors.New("missing buckets in DB")
-		}
-
-		data, err := l.serialize()
-		if err != nil {
-			return err
-		}
-
-		if e := ipBkt.Put(l.IP.To4(), data); e != nil {
-			return e
-		}
-
-		return macBkt.Put(l.MAC, data)
-	})
-}
-
-func (l *Lease) serialize() ([]byte, error) {
-	ip := l.IP.To4()
-	out := make([]byte, 18)
-	copy(out[0:4], ip)
-
-	if len(l.MAC) < 6 {
-		return nil, fmt.Errorf("MAC too short: %s", l.MAC)
 	}
 
-	copy(out[4:10], l.MAC[:6])
-
-	expireSec := l.ExpireAt.Unix()
-	binary.BigEndian.PutUint64(out[10:18], uint64(expireSec))
-
-	return out, nil
-}
-
-func deserialize(data []byte) (*Lease, error) {
-	if len(data) < 18 {
-		return nil, fmt.Errorf("invalid data length for lease, want >=18, got %d", len(data))
+	now := time.Now()
+	var activeLeases []*storage.Lease
+	for _, l := range leases {
+		if now.Before(l.ExpireAt) {
+			activeLeases = append(activeLeases, l)
+		}
 	}
-
-	ip := net.IPv4(data[0], data[1], data[2], data[3])
-	mac := net.HardwareAddr(data[4:10])
-	expireSec := int64(binary.BigEndian.Uint64(data[10:18]))
-
-	return &Lease{
-		IP:       ip,
-		MAC:      mac,
-		ExpireAt: time.Unix(expireSec, 0),
-	}, nil
+	return activeLeases
 }
 
 func (p *Pool) Close() error {
-	return p.db.Close()
+	return p.store.Close()
 }
 
 func (p *Pool) StartCleanup(interval time.Duration) {
@@ -375,47 +213,27 @@ func (p *Pool) StartCleanup(interval time.Duration) {
 }
 
 func (p *Pool) CleanupExpiredLeases() error {
-	now := time.Now()
-	var freedOffsets []int
-
-	startUint := ipToUint32(p.start)
-
-	err := p.db.Update(func(tx *bolt.Tx) error {
-		ipBkt := tx.Bucket(ipBucket)
-		macBkt := tx.Bucket(macBucket)
-		if ipBkt == nil || macBkt == nil {
-			return nil
-		}
-
-		c := ipBkt.Cursor()
-		for k, v := c.First(); k != nil; k, v = c.Next() {
-			l, de := deserialize(v)
-
-			if de != nil {
-				continue // skip corrupt
-			}
-			if now.After(l.ExpireAt) {
-				if err := c.Delete(); err != nil {
-					return err
-				}
-				if err := macBkt.Delete(l.MAC); err != nil {
-					return err
-				}
-
-				// track offset for clearing in bitmap
-				offset := int(ipToUint32(l.IP) - startUint)
-				if offset >= 0 && offset < p.totalLeases {
-					freedOffsets = append(freedOffsets, offset)
-				}
-			}
-		}
-		return nil
-	})
+	leases, err := p.store.ListLeases()
 	if err != nil {
 		return err
 	}
 
-	// clear bit
+	now := time.Now()
+	var freedOffsets []int
+	startUint := ipToUint32(p.start)
+	for _, l := range leases {
+		if now.After(l.ExpireAt) {
+			if err := p.store.DeleteLease(l.IP); err != nil {
+				log.Warnf("Failed to delete expired lease %s: %v", l.IP, err)
+				continue
+			}
+			offset := int(ipToUint32(l.IP) - startUint)
+			if offset >= 0 && offset < p.totalLeases {
+				freedOffsets = append(freedOffsets, offset)
+			}
+		}
+	}
+
 	if len(freedOffsets) > 0 {
 		p.mutex.Lock()
 		defer p.mutex.Unlock()

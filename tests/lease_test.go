@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/umegbewe/dhcpd/internal/storage"
 	"github.com/umegbewe/dhcpd/pkg/dhcp"
 )
 
@@ -13,7 +14,13 @@ func TestLeasePoolBasic(t *testing.T) {
 	dbFile := "test_leases_pool.db"
 	defer os.Remove(dbFile)
 
-	pool, err := dhcp.LeasePool("192.168.100.10", "192.168.100.20", 60, dbFile)
+	store, err := storage.NewBoltStore(dbFile)
+	if err != nil {
+		t.Fatalf("Failed to create bolt store: %v", err)
+	}
+	defer store.Close()
+
+	pool, err := dhcp.LeasePool("192.168.100.10", "192.168.100.20", 60, store)
 	if err != nil {
 		t.Fatalf("Failed to create lease pool: %v", err)
 	}
@@ -48,7 +55,13 @@ func TestLeasePoolExhaustion(t *testing.T) {
 	dbFile := "test_leases_exhaust.db"
 	defer os.Remove(dbFile)
 
-	pool, err := dhcp.LeasePool("192.168.100.10", "192.168.100.12", 60, dbFile)
+	store, err := storage.NewBoltStore(dbFile)
+	if err != nil {
+		t.Fatalf("Failed to create bolt store: %v", err)
+	}
+	defer store.Close()
+
+	pool, err := dhcp.LeasePool("192.168.100.10", "192.168.100.12", 60, store)
 	if err != nil {
 		t.Fatalf("Failed to create lease pool: %v", err)
 	}
@@ -78,7 +91,13 @@ func TestLeasePoolExpiry(t *testing.T) {
 	dbFile := "test_leases_expiry.db"
 	defer os.Remove(dbFile)
 
-	pool, err := dhcp.LeasePool("192.168.100.10", "192.168.100.10", 1, dbFile)
+	store, err := storage.NewBoltStore(dbFile)
+	if err != nil {
+		t.Fatalf("Failed to create bolt store: %v", err)
+	}
+	defer store.Close()
+
+	pool, err := dhcp.LeasePool("192.168.100.10", "192.168.100.10", 1, store)
 	if err != nil {
 		t.Fatalf("Failed to create lease pool: %v", err)
 	}
@@ -111,7 +130,13 @@ func TestLeaseWrapAround(t *testing.T) {
 	dbFile := "test_lease_wraparound.db"
 	defer os.Remove(dbFile)
 
-	pool, err := dhcp.LeasePool("192.168.0.100", "192.168.0.104", 1, dbFile)
+	store, err := storage.NewBoltStore(dbFile)
+	if err != nil {
+		t.Fatalf("Failed to create bolt store: %v", err)
+	}
+	defer store.Close()
+
+	pool, err := dhcp.LeasePool("192.168.0.100", "192.168.0.104", 1, store)
 	if err != nil {
 		t.Fatalf("Failed to create lease pool: %v", err)
 	}

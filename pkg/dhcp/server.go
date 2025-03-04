@@ -10,6 +10,7 @@ import (
 	"github.com/umegbewe/dhcpd/internal/config"
 	"github.com/umegbewe/dhcpd/internal/logging"
 	"github.com/umegbewe/dhcpd/internal/metrics"
+	"github.com/umegbewe/dhcpd/internal/storage"
 )
 
 type Server struct {
@@ -26,13 +27,31 @@ func InitServer(cfg *config.Config) (*Server, error) {
 		log.Fatalf("Failed to setup logging: %v", err)
 	}
 
-	pool, err := LeasePool(cfg.Server.IPStart, cfg.Server.IPEnd, cfg.Server.LeaseTime, cfg.Server.LeaseDBPath)
+	var store storage.LeaseStore
+	switch cfg.Database.Type {
+	case "bolt":
+		if cfg.Database.Bolt.Path == "" {
+			return nil, fmt.Errorf("bolt database path is required")
+		}
+		store, err = storage.NewBoltStore(cfg.Database.Bolt.Path)
+	case "redis":
+		store, err = storage.NewRedisStore(cfg.Database.Redis.Addr, cfg.Database.Redis.Password, cfg.Database.Redis.DB)
+	default:
+		return nil, fmt.Errorf("unsupported database type: %s", cfg.Database.Type)
+	}
 	if err != nil {
+		return nil, fmt.Errorf("failed to initialize lease store: %v", err)
+	}
+
+	pool, err := LeasePool(cfg.Server.IPStart, cfg.Server.IPEnd, cfg.Server.LeaseTime, store)
+	if err != nil {
+		store.Close()
 		return nil, fmt.Errorf("failed to create lease pool: %v", err)
 	}
 
 	iface, err := net.InterfaceByName(cfg.Server.Interface)
 	if err != nil {
+		store.Close()
 		return nil, fmt.Errorf("[ERROR] Could not find interface %s: %v", cfg.Server.Interface, err)
 	}
 
