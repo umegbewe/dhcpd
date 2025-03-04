@@ -34,6 +34,7 @@ func (s *RedisStore) SaveLease(lease *Lease) error {
 	if err != nil {
 		return err
 	}
+
 	ipKey := leaseKeyByIP(lease.IP)
 	macKey := leaseKeyByMAC(lease.MAC)
 
@@ -41,6 +42,7 @@ func (s *RedisStore) SaveLease(lease *Lease) error {
 	pipe.Set(s.ctx, ipKey, data, 0)
 	pipe.Set(s.ctx, macKey, data, 0)
 	_, err = pipe.Exec(s.ctx)
+
 	return err
 }
 
@@ -86,15 +88,18 @@ func (s *RedisStore) DeleteLease(ip net.IP) error {
 	} else if err != nil {
 		return err
 	}
+
 	var lease Lease
 	if err := json.Unmarshal(data, &lease); err != nil {
 		return err
 	}
+
 	macKey := leaseKeyByMAC(lease.MAC)
 	pipe := s.client.TxPipeline()
 	pipe.Del(s.ctx, ipKey)
 	pipe.Del(s.ctx, macKey)
 	_, err = pipe.Exec(s.ctx)
+	
 	return err
 }
 

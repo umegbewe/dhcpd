@@ -83,13 +83,6 @@ func (s *BoltStore) GetLeaseByMAC(mac net.HardwareAddr) (*Lease, error) {
 
 		lease = l
 
-		// should check before expired
-		// if val != nil {
-		// 	l, err := deserialize(val)
-		// 	if err == nil && time.Now().Before(l.ExpireAt) {
-		// 		lease = l
-		// 	}
-		// }
 		return nil
 	})
 	return lease, err
@@ -152,7 +145,7 @@ func (s *BoltStore) ListLeases() ([]*Lease, error) {
 			return nil
 		}
 		c := ipBkt.Cursor()
-		// now := time.Now()
+
 		for k, v := c.First(); k != nil; k, v = c.Next() {
 			l, err := deserializeLease(v)
 			if err != nil {
