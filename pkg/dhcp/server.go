@@ -7,6 +7,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+
 	"github.com/umegbewe/dhcpd/internal/config"
 	"github.com/umegbewe/dhcpd/internal/logging"
 	"github.com/umegbewe/dhcpd/internal/metrics"
@@ -34,6 +35,11 @@ func InitServer(cfg *config.Config) (*Server, error) {
 			return nil, fmt.Errorf("bolt database path is required")
 		}
 		store, err = storage.NewBoltStore(cfg.Database.Bolt.Path)
+	case "sqlite":
+		if cfg.Database.Sqlite.Path == "" {
+			return nil, fmt.Errorf("sqlite database path is required")
+		}
+		store, err = storage.NewSqliteStore(cfg.Database.Sqlite.Path)
 	case "redis":
 		store, err = storage.NewRedisStore(cfg.Database.Redis.Addr, cfg.Database.Redis.Password, cfg.Database.Redis.DB)
 	default:
@@ -280,8 +286,8 @@ func (s *Server) SendNAK(message *Message, reason string) {
 	log.Infof("Sending DHCP NAK to MAC %s: %s", message.CHAddr, reason)
 
 	if s.metricsEnabled {
-        metrics.DHCPNAKs.Inc()
-    }
+		metrics.DHCPNAKs.Inc()
+	}
 
 	reply := NewMessage()
 	reply.XID = message.XID

@@ -21,6 +21,10 @@ database:
  # type: redis
  # redis:
  #   addr: "localhost:6379"
+
+  # type: sqlite                           
+  # sqlite:         
+  #   path: leases.db
   
 logging:
   level: "info"                        # Log level (debug, info, warn, error)

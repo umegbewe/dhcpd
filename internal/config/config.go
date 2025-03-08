@@ -41,12 +41,16 @@ type Metrics struct {
 }
 
 type Database struct {
-	Type  string      `yaml:"type" default:"bolt"`
-	Bolt  BoltConfig  `yaml:"bolt"`
-	Redis RedisConfig `yaml:"redis"`
+	Type   string       `yaml:"type" default:"bolt"`
+	Bolt   BoltConfig   `yaml:"bolt"`
+	Redis  RedisConfig  `yaml:"redis"`
+	Sqlite SqliteConfig `yaml:"sqlite"`
 }
 
 type BoltConfig struct {
+	Path string `yaml:"path"`
+}
+type SqliteConfig struct {
 	Path string `yaml:"path"`
 }
 
